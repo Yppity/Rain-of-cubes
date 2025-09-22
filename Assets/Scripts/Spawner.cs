@@ -4,7 +4,7 @@ using UnityEngine.Pool;
 
 public class Spawner : MonoBehaviour
 {
-    [SerializeField] private GameObject _prefab;
+    [SerializeField] private Cube _cubePrefab;
     [SerializeField] private Vector3 _startPoint;
     [SerializeField] private float _spawnOffset = 4f;
     [SerializeField] private float _repeatRate = 1f;
@@ -13,15 +13,15 @@ public class Spawner : MonoBehaviour
     [SerializeField] private int _poolCapacity = 10;
     [SerializeField] private int _poolMaxSize = 10;
 
-    private ObjectPool<GameObject> _pool;
+    private ObjectPool<Cube> _pool;
 
     private void Awake()
     {
-        _pool = new ObjectPool<GameObject>(
-        createFunc: () => Instantiate(_prefab),
-        actionOnGet: (obj) => ActionOnGet(obj),
-        actionOnRelease: (obj) => obj.SetActive(false),
-        actionOnDestroy: (obj) => Destroy(obj),
+        _pool = new ObjectPool<Cube>(
+        createFunc: () => Instantiate(_cubePrefab),
+        actionOnGet: (cube) => InitializeCube(cube),
+        actionOnRelease: (cube) => ReleaseCube(cube),
+        actionOnDestroy: (cube) => DestroyCube(cube),
         collectionCheck: true,
         defaultCapacity: _poolCapacity,
         maxSize: _poolMaxSize);
@@ -29,38 +29,46 @@ public class Spawner : MonoBehaviour
 
     private void Start()
     {
-        InvokeRepeating(nameof(GetCube), 0.0f, _repeatRate);
+        StartCoroutine(SpawnCube());
     }
 
-    private void GetCube()
+    private void InitializeCube(Cube cube)
     {
-        _pool.Get();
+        cube.Collided += HandleCollision;
+        cube.transform.position = GetRandomPoint();
+        cube.gameObject.SetActive(true);
     }
 
-    private void ActionOnGet(GameObject obj)
+    private void ReleaseCube(Cube cube)
     {
-        CollisionNotifier collision = obj.GetComponent<CollisionNotifier>();
-
-        if (collision != null)
-            collision.Collide += ActionCollision;
-
-        obj.transform.position = GetRandomPoint();
-        obj.GetComponent<Rigidbody>().velocity = Vector3.zero;
-        obj.SetActive(true);
+        cube.ResetVelocity();
+        cube.Collided -= HandleCollision;
+        cube.gameObject.SetActive(false);
     }
 
-    private IEnumerator DalayOnRelease(GameObject obj)
+    private void DestroyCube(Cube cube)
     {
-        CollisionNotifier collision = obj.GetComponent<CollisionNotifier>();
+        cube.Collided -= HandleCollision;
+        Destroy(cube.gameObject);
+    }
 
+    private IEnumerator SpawnCube()
+    {
+        while (true)
+        {
+            _pool.Get();
+
+            yield return new WaitForSeconds(_repeatRate);
+        }
+    }
+
+    private IEnumerator DalayOnRelease(Cube cube)
+    {
         float wait = Random.Range(_minLifetime, _maxLifetime);
 
         yield return new WaitForSeconds(wait);
 
-        if (collision != null)
-            collision.Collide -= ActionCollision;
-
-        _pool.Release(obj);
+        _pool.Release(cube);
     }
 
     private Vector3 GetRandomPoint()
@@ -71,16 +79,9 @@ public class Spawner : MonoBehaviour
         return new Vector3(positionX, _startPoint.y, positionZ);
     }
 
-    private void ActionCollision(GameObject obj)
+    private void HandleCollision(Cube cube)
     {
-        SetColor(obj);
-        StartCoroutine(DalayOnRelease(obj));
-    }
-
-    private void SetColor(GameObject obj)
-    {
-        ColorSetter colorSetter = obj.GetComponent<ColorSetter>();
-        if (colorSetter != null)
-            colorSetter.SetEventColor();
+        cube.SetEventColor();
+        StartCoroutine(DalayOnRelease(cube));
     }
 }
