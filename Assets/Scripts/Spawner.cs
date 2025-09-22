@@ -54,21 +54,14 @@ public class Spawner : MonoBehaviour
 
     private IEnumerator SpawnCube()
     {
-        while (true)
+        WaitForSeconds wait = new WaitForSeconds(_repeatRate);
+
+        while (enabled)
         {
             _pool.Get();
 
-            yield return new WaitForSeconds(_repeatRate);
+            yield return wait;
         }
-    }
-
-    private IEnumerator DalayOnRelease(Cube cube)
-    {
-        float wait = Random.Range(_minLifetime, _maxLifetime);
-
-        yield return new WaitForSeconds(wait);
-
-        _pool.Release(cube);
     }
 
     private Vector3 GetRandomPoint()
@@ -81,7 +74,9 @@ public class Spawner : MonoBehaviour
 
     private void HandleCollision(Cube cube)
     {
+        float lifetime = Random.Range(_minLifetime, _maxLifetime);
+
         cube.SetEventColor();
-        StartCoroutine(DalayOnRelease(cube));
+        cube.StartLifetime(lifetime, _pool.Release);
     }
 }

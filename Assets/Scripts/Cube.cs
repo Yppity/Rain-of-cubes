@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
@@ -27,7 +28,7 @@ public class Cube : MonoBehaviour
     {
         if (_hasCollided == false)
         {
-            if (collision.gameObject.TryGetComponent<Platform>(out Platform platform))
+            if (collision.gameObject.TryGetComponent<Platform>(out _))
             {
                 Collided?.Invoke(this);
                 _hasCollided = true;
@@ -43,5 +44,16 @@ public class Cube : MonoBehaviour
     public void SetEventColor()
     {
         _colorSetter.SetEventColor();
+    }
+
+    public void StartLifetime(float time, Action<Cube> callback)
+    {
+        StartCoroutine(LifetimeRoutine(time, callback));
+    }
+
+    private IEnumerator LifetimeRoutine(float time, Action<Cube> callback)
+    {
+        yield return new WaitForSeconds(time);
+        callback?.Invoke(this);
     }
 }
